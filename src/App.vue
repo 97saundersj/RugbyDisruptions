@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   fetchWeatherByDate,
   loadSeasonStats,
@@ -44,6 +44,27 @@ const cacheKey = computed(
 
 const cardTitle = computed(() => `Rugby Matches (${selectedApiSeason.value}, GB-ENG)`);
 const sourceText = computed(() => (loadedFromCache.value ? "Cache" : "API"));
+const hasSeasonDataCached = ref(false);
+
+const seasonActionLabel = computed(() =>
+  hasSeasonDataCached.value ? "Refresh" : "Search",
+);
+
+function updateSeasonCacheFlag() {
+  try {
+    const rawCache = localStorage.getItem(cacheKey.value);
+    if (!rawCache) {
+      hasSeasonDataCached.value = false;
+      return;
+    }
+    const parsed = JSON.parse(rawCache);
+    hasSeasonDataCached.value = Array.isArray(parsed?.matches);
+  } catch {
+    hasSeasonDataCached.value = false;
+  }
+}
+
+watch(cacheKey, updateSeasonCacheFlag, { immediate: true });
 
 const tableHeaders = [
   { title: "ID", key: "id", sortable: true },
@@ -397,6 +418,7 @@ function saveCache() {
       savedAt: new Date().toISOString(),
     };
     localStorage.setItem(cacheKey.value, JSON.stringify(cachePayload));
+    updateSeasonCacheFlag();
   } catch {
     // Ignore cache write errors (quota/private mode)
   }
@@ -554,7 +576,7 @@ onMounted(async () => {
               </v-col>
               <v-col cols="12" md="6" class="d-flex flex-wrap ga-2">
                 <v-btn color="primary" :loading="isLoading" @click="startSearch">
-                  Search
+                  {{ seasonActionLabel }}
                 </v-btn>
               </v-col>
             </v-row>
